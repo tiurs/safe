@@ -6,14 +6,11 @@ import { ENTITIES, KINDS, columnsFor } from '../db/entities';
 import { listItems, parsePhotos } from '../db/repo';
 import type { Kind, Row } from '../db/types';
 import { toCsv } from './csv';
+import { localToday } from './date';
 import { clearAllPhotos, readPhotoBase64, writePhotoBase64 } from './photos';
 
 const BACKUP_FORMAT = 'safe-inventory-backup';
 const META_COLUMNS = ['id', 'photos', 'created_at', 'updated_at'];
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 async function shareFile(name: string, contents: string, mimeType: string, uti?: string) {
   const file = new File(Paths.cache, name);
@@ -39,14 +36,14 @@ export async function exportBackup(db: SQLiteDatabase, includePhotos: boolean) {
     }
   }
   const payload = { format: BACKUP_FORMAT, version: 1, exportedAt: new Date().toISOString(), data, photos };
-  await shareFile(`safe-backup-${today()}.json`, JSON.stringify(payload), 'application/json', 'public.json');
+  await shareFile(`safe-backup-${localToday()}.json`, JSON.stringify(payload), 'application/json', 'public.json');
 }
 
 export async function exportCsv(db: SQLiteDatabase, kind: Kind) {
   const rows = await listItems(db, kind);
   const firearms = await listItems(db, 'firearms');
   const names = new Map(firearms.map((f) => [f.id, ENTITIES.firearms.title(f)]));
-  await shareFile(`safe-${kind}-${today()}.csv`, toCsv(kind, rows, names), 'text/csv', 'public.comma-separated-values-text');
+  await shareFile(`safe-${kind}-${localToday()}.csv`, toCsv(kind, rows, names), 'text/csv', 'public.comma-separated-values-text');
 }
 
 export interface ImportSummary {

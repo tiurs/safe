@@ -7,6 +7,7 @@ import { Button, Chips, Input, Label } from '../../components/ui';
 import { ENTITIES, isKind } from '../../db/entities';
 import { getItem, listItems, parsePhotos, saveItem, toFormValues, validate, type FormValues } from '../../db/repo';
 import type { FieldDef, Kind, Row } from '../../db/types';
+import { localToday } from '../../lib/date';
 import { deletePhotos } from '../../lib/photos';
 import { useTheme } from '../../lib/theme';
 
@@ -119,7 +120,7 @@ function EditForm({ kind, id }: { kind: Kind; id?: number }) {
               keyboardType="numbers-and-punctuation"
               accessibilityLabel={f.label}
             />
-            <Button title="Today" variant="secondary" onPress={() => set(f.key, new Date().toISOString().slice(0, 10))} />
+            <Button title="Today" variant="secondary" onPress={() => set(f.key, localToday())} />
           </View>
         );
         break;
