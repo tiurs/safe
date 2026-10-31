@@ -73,6 +73,11 @@ function Detail({ kind, id }: { kind: Kind; id: number }) {
       Alert.alert('Enter a round count', 'Type how many rounds to add or remove.');
       return;
     }
+    const available = Number(row.quantity ?? 0);
+    if (sign === -1 && n > available) {
+      Alert.alert('Not enough rounds', `Only ${available.toLocaleString()} rounds are on hand.`);
+      return;
+    }
     await adjustAmmo(db, id, sign * n);
     if (sign === -1 && useWith) await addRoundsToFirearm(db, Number(useWith), n);
     setAmount('');
