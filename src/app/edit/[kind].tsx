@@ -7,6 +7,7 @@ import { Button, Chips, Input, Label } from '../../components/ui';
 import { ENTITIES, isKind } from '../../db/entities';
 import { getItem, listItems, parsePhotos, saveItem, toFormValues, validate, type FormValues } from '../../db/repo';
 import type { FieldDef, Kind, Row } from '../../db/types';
+import { localToday } from '../../lib/date';
 import { deletePhotos } from '../../lib/photos';
 import { useTheme } from '../../lib/theme';
 
@@ -39,14 +40,15 @@ function EditForm({ kind, id }: { kind: Kind; id?: number }) {
     if (def.fields.some((f) => f.type === 'firearm')) listItems(db, 'firearms').then(setFirearms);
   }, [db, kind, id, def.fields]);
 
-  const photosRef = useRef(photos);
-  useEffect(() => {
-    photosRef.current = photos;
-  }, [photos]);
+  // Every photo picked during this edit, including ones removed again before saving.
+  const addedPhotos = useRef(new Set<string>());
+  const changePhotos = (next: string[]) => {
+    for (const p of next) if (!originalPhotos.current.includes(p)) addedPhotos.current.add(p);
+    setPhotos(next);
+  };
   useEffect(
     () => () => {
-      // Clean up photos added during an edit that was abandoned.
-      if (!saved.current) deletePhotos(photosRef.current.filter((p) => !originalPhotos.current.includes(p)));
+      if (!saved.current) deletePhotos([...addedPhotos.current]);
     },
     []
   );
@@ -65,7 +67,7 @@ function EditForm({ kind, id }: { kind: Kind; id?: number }) {
     try {
       const savedId = await saveItem(db, kind, values, photos, id);
       saved.current = true;
-      deletePhotos(originalPhotos.current.filter((p) => !photos.includes(p)));
+      deletePhotos([...originalPhotos.current, ...addedPhotos.current].filter((p) => !photos.includes(p)));
       if (id) {
         router.back();
       } else {
@@ -119,7 +121,7 @@ function EditForm({ kind, id }: { kind: Kind; id?: number }) {
               keyboardType="numbers-and-punctuation"
               accessibilityLabel={f.label}
             />
-            <Button title="Today" variant="secondary" onPress={() => set(f.key, new Date().toISOString().slice(0, 10))} />
+            <Button title="Today" variant="secondary" onPress={() => set(f.key, localToday())} />
           </View>
         );
         break;
@@ -156,7 +158,7 @@ function EditForm({ kind, id }: { kind: Kind; id?: number }) {
         keyboardShouldPersistTaps="handled">
         <View>
           <Label>Photos</Label>
-          <PhotoStrip photos={photos} onChange={setPhotos} />
+          <PhotoStrip photos={photos} onChange={changePhotos} />
         </View>
         {def.fields.map(renderField)}
         <Button title={saving ? 'Saving…' : 'Save'} icon="checkmark" onPress={save} disabled={saving} />

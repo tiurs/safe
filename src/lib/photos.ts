@@ -57,13 +57,31 @@ export function readPhotoBase64(name: string): string | null {
   }
 }
 
-export function writePhotoBase64(name: string, data: string) {
-  const safeName = name.replace(/[^A-Za-z0-9._-]/g, '_');
-  const file = new File(photoDir(), safeName);
-  if (file.exists) file.delete();
-  file.create();
-  file.writeSync(data, { encoding: 'base64' });
-  return safeName;
+/** Writes backup photos to a staging folder so a bad photo fails the restore before anything is replaced. */
+export function stagePhotosBase64(photos: Record<string, string>): Directory {
+  const stage = new Directory(Paths.cache, 'photo-restore');
+  if (stage.exists) stage.delete();
+  stage.create({ intermediates: true });
+  try {
+    for (const [name, data] of Object.entries(photos)) {
+      const file = new File(stage, name.replace(/[^A-Za-z0-9._-]/g, '_'));
+      file.create();
+      file.writeSync(data, { encoding: 'base64' });
+    }
+  } catch (e) {
+    stage.delete();
+    throw e;
+  }
+  return stage;
+}
+
+export function replaceAllPhotos(stage: Directory) {
+  clearAllPhotos();
+  const dir = photoDir();
+  for (const entry of stage.list()) {
+    if (entry instanceof File) entry.moveSync(new File(dir, entry.name));
+  }
+  stage.delete();
 }
 
 export function clearAllPhotos() {

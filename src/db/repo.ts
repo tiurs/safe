@@ -43,8 +43,11 @@ export function validate(kind: Kind, values: FormValues): string | null {
     const raw = (values[f.key] ?? '').trim();
     if (f.required && raw === '') return `${f.label} is required.`;
     if (raw === '') continue;
-    if ((f.type === 'number' || f.type === 'money') && !Number.isFinite(Number(raw.replace(/[$,\s]/g, '')))) {
-      return `${f.label} must be a number.`;
+    if (f.type === 'number' || f.type === 'money') {
+      const n = Number(raw.replace(/[$,\s]/g, ''));
+      if (!Number.isFinite(n)) return `${f.label} must be a number.`;
+      if (n < 0) return `${f.label} cannot be negative.`;
+      if (f.integer && !Number.isInteger(n)) return `${f.label} must be a whole number.`;
     }
     if (f.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
       return `${f.label} must be in YYYY-MM-DD format.`;
@@ -106,16 +109,30 @@ export async function addAmmo(db: SQLiteDatabase, id: number, rounds: number) {
   );
 }
 
-/** Removes rounds only if enough are on hand, crediting the firearm in the same transaction. */
-export async function spendAmmo(
+// withTransactionAsync shares the connection, so overlapping transactions would roll each other back.
+let spendQueue: Promise<unknown> = Promise.resolve();
+
+/** Removes rounds only if enough are on hand (checked in SQL), then credits the firearm in the same transaction. */
+export function spendAmmo(
+  db: SQLiteDatabase,
+  id: number,
+  rounds: number,
+  firearmId: number | null
+): Promise<boolean> {
+  const run = spendQueue.then(() => spendAmmoNow(db, id, rounds, firearmId));
+  spendQueue = run.catch(() => {});
+  return run;
+}
+
+async function spendAmmoNow(
   db: SQLiteDatabase,
   id: number,
   rounds: number,
   firearmId: number | null
 ): Promise<boolean> {
   let used = false;
-  await db.withExclusiveTransactionAsync(async (txn) => {
-    const result = await txn.runAsync(
+  await db.withTransactionAsync(async () => {
+    const result = await db.runAsync(
       `UPDATE ammo SET quantity = quantity - ?, updated_at = datetime('now') WHERE id = ? AND quantity >= ?`,
       rounds,
       id,
@@ -123,7 +140,7 @@ export async function spendAmmo(
     );
     if (result.changes === 0) return;
     if (firearmId !== null) {
-      await txn.runAsync(
+      await db.runAsync(
         `UPDATE firearms SET round_count = COALESCE(round_count, 0) + ?, updated_at = datetime('now') WHERE id = ?`,
         rounds,
         firearmId

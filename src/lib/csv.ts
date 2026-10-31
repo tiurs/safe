@@ -3,7 +3,9 @@ import type { Kind, Row } from '../db/types';
 
 function escape(value: unknown): string {
   if (value === null || value === undefined) return '';
-  const s = String(value);
+  let s = String(value);
+  // Stop spreadsheets from treating text like "=HYPERLINK(...)" as a formula.
+  if (typeof value === 'string' && /^\s*[=+\-@]/.test(s)) s = `'${s}`;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
