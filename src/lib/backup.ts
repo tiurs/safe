@@ -7,7 +7,7 @@ import { listItems, parsePhotos } from '../db/repo';
 import type { Kind, Row } from '../db/types';
 import { toCsv } from './csv';
 import { localToday } from './date';
-import { clearAllPhotos, readPhotoBase64, writePhotoBase64 } from './photos';
+import { clearAllPhotos, readPhotoBase64, replaceAllPhotos, stagePhotosBase64 } from './photos';
 
 const BACKUP_FORMAT = 'safe-inventory-backup';
 const META_COLUMNS = ['id', 'photos', 'created_at', 'updated_at'];
@@ -70,6 +70,12 @@ export async function restoreBackup(db: SQLiteDatabase, payload: unknown): Promi
     throw new Error('That file is not a Safe backup.');
   }
   const summary: ImportSummary = { firearms: 0, ammo: 0, accessories: 0, photos: 0 };
+  const photos = Object.fromEntries(
+    Object.entries(p.photos && typeof p.photos === 'object' ? p.photos : {}).filter(
+      (e): e is [string, string] => typeof e[1] === 'string'
+    )
+  );
+  const stage = Object.keys(photos).length ? stagePhotosBase64(photos) : null;
   await db.withTransactionAsync(async () => {
     await db.execAsync('DELETE FROM accessories; DELETE FROM ammo; DELETE FROM firearms;');
     for (const kind of KINDS) {
@@ -90,15 +96,9 @@ export async function restoreBackup(db: SQLiteDatabase, payload: unknown): Promi
       }
     }
   });
-  const photos = p.photos && typeof p.photos === 'object' ? p.photos : {};
-  if (Object.keys(photos).length) {
-    clearAllPhotos();
-    for (const [name, data] of Object.entries(photos)) {
-      if (typeof data === 'string') {
-        writePhotoBase64(name, data);
-        summary.photos++;
-      }
-    }
+  if (stage) {
+    replaceAllPhotos(stage);
+    summary.photos = Object.keys(photos).length;
   }
   return summary;
 }
