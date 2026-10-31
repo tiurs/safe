@@ -108,8 +108,22 @@ export async function addAmmo(db: SQLiteDatabase, id: number, rounds: number) {
   );
 }
 
+// withTransactionAsync shares the connection, so overlapping transactions would roll each other back.
+let spendQueue: Promise<unknown> = Promise.resolve();
+
 /** Removes rounds only if enough are on hand (checked in SQL), then credits the firearm in the same transaction. */
-export async function spendAmmo(
+export function spendAmmo(
+  db: SQLiteDatabase,
+  id: number,
+  rounds: number,
+  firearmId: number | null
+): Promise<boolean> {
+  const run = spendQueue.then(() => spendAmmoNow(db, id, rounds, firearmId));
+  spendQueue = run.catch(() => {});
+  return run;
+}
+
+async function spendAmmoNow(
   db: SQLiteDatabase,
   id: number,
   rounds: number,
