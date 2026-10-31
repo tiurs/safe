@@ -5,7 +5,7 @@ function escape(value: unknown): string {
   if (value === null || value === undefined) return '';
   let s = String(value);
   // Stop spreadsheets from treating text like "=HYPERLINK(...)" as a formula.
-  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  if (typeof value === 'string' && /^\s*[=+\-@]/.test(s)) s = `'${s}`;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
