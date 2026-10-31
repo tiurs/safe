@@ -106,7 +106,7 @@ export async function addAmmo(db: SQLiteDatabase, id: number, rounds: number) {
   );
 }
 
-/** Removes rounds only if enough are on hand, crediting the firearm in the same transaction. */
+/** Removes rounds only if enough are on hand (checked in SQL), then credits the firearm in the same transaction. */
 export async function spendAmmo(
   db: SQLiteDatabase,
   id: number,
@@ -114,8 +114,8 @@ export async function spendAmmo(
   firearmId: number | null
 ): Promise<boolean> {
   let used = false;
-  await db.withExclusiveTransactionAsync(async (txn) => {
-    const result = await txn.runAsync(
+  await db.withTransactionAsync(async () => {
+    const result = await db.runAsync(
       `UPDATE ammo SET quantity = quantity - ?, updated_at = datetime('now') WHERE id = ? AND quantity >= ?`,
       rounds,
       id,
@@ -123,7 +123,7 @@ export async function spendAmmo(
     );
     if (result.changes === 0) return;
     if (firearmId !== null) {
-      await txn.runAsync(
+      await db.runAsync(
         `UPDATE firearms SET round_count = COALESCE(round_count, 0) + ?, updated_at = datetime('now') WHERE id = ?`,
         rounds,
         firearmId
