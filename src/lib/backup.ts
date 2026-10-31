@@ -76,10 +76,24 @@ export async function restoreBackup(db: SQLiteDatabase, payload: unknown): Promi
     )
   );
   const stage = Object.keys(photos).length ? stagePhotosBase64(photos) : null;
+  try {
+    await importRows(db, p.data!, summary);
+  } catch (e) {
+    stage?.delete();
+    throw e;
+  }
+  if (stage) {
+    replaceAllPhotos(stage);
+    summary.photos = Object.keys(photos).length;
+  }
+  return summary;
+}
+
+async function importRows(db: SQLiteDatabase, data: Record<string, unknown>, summary: ImportSummary) {
   await db.withTransactionAsync(async () => {
     await db.execAsync('DELETE FROM accessories; DELETE FROM ammo; DELETE FROM firearms;');
     for (const kind of KINDS) {
-      const rows = Array.isArray(p.data![kind]) ? (p.data![kind] as Record<string, unknown>[]) : [];
+      const rows = Array.isArray(data[kind]) ? (data[kind] as Record<string, unknown>[]) : [];
       const cols = [...META_COLUMNS, ...columnsFor(kind)];
       for (const row of rows) {
         const present = cols.filter((c) => row[c] !== undefined);
@@ -96,11 +110,6 @@ export async function restoreBackup(db: SQLiteDatabase, payload: unknown): Promi
       }
     }
   });
-  if (stage) {
-    replaceAllPhotos(stage);
-    summary.photos = Object.keys(photos).length;
-  }
-  return summary;
 }
 
 export async function eraseAll(db: SQLiteDatabase) {
