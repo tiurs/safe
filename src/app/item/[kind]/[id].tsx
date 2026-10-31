@@ -7,12 +7,12 @@ import { Button, Card, Chips, Input, Label, SectionTitle } from '../../../compon
 import { ENTITIES, isKind } from '../../../db/entities';
 import {
   accessoriesForFirearm,
-  addRoundsToFirearm,
-  adjustAmmo,
+  addAmmo,
   deleteItem,
   getItem,
   listItems,
   parsePhotos,
+  spendAmmo,
 } from '../../../db/repo';
 import type { FieldDef, Kind, Row } from '../../../db/types';
 import { deletePhotos } from '../../../lib/photos';
@@ -34,6 +34,7 @@ function Detail({ kind, id }: { kind: Kind; id: number }) {
   const [firearms, setFirearms] = useState<Row[]>([]);
   const [amount, setAmount] = useState('');
   const [useWith, setUseWith] = useState('');
+  const [adjusting, setAdjusting] = useState(false);
 
   const load = useCallback(() => {
     getItem(db, kind, id).then(async (r) => {
@@ -73,13 +74,18 @@ function Detail({ kind, id }: { kind: Kind; id: number }) {
       Alert.alert('Enter a round count', 'Type how many rounds to add or remove.');
       return;
     }
-    const available = Number(row.quantity ?? 0);
-    if (sign === -1 && n > available) {
-      Alert.alert('Not enough rounds', `Only ${available.toLocaleString()} rounds are on hand.`);
-      return;
+    setAdjusting(true);
+    try {
+      if (sign === 1) {
+        await addAmmo(db, id, n);
+      } else if (!(await spendAmmo(db, id, n, useWith ? Number(useWith) : null))) {
+        load();
+        Alert.alert('Not enough rounds', 'You cannot use more rounds than are on hand.');
+        return;
+      }
+    } finally {
+      setAdjusting(false);
     }
-    await adjustAmmo(db, id, sign * n);
-    if (sign === -1 && useWith) await addRoundsToFirearm(db, Number(useWith), n);
     setAmount('');
     load();
   };
@@ -138,10 +144,10 @@ function Detail({ kind, id }: { kind: Kind; id: number }) {
           )}
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}>
-              <Button title="Use / remove" icon="remove" variant="secondary" onPress={() => adjust(-1)} />
+              <Button title="Use / remove" icon="remove" variant="secondary" onPress={() => adjust(-1)} disabled={adjusting} />
             </View>
             <View style={{ flex: 1 }}>
-              <Button title="Add" icon="add" onPress={() => adjust(1)} />
+              <Button title="Add" icon="add" onPress={() => adjust(1)} disabled={adjusting} />
             </View>
           </View>
         </Card>

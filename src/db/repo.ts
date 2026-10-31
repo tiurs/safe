@@ -98,20 +98,40 @@ export async function deleteItem(db: SQLiteDatabase, kind: Kind, id: number): Pr
   return parsePhotos(row);
 }
 
-export async function adjustAmmo(db: SQLiteDatabase, id: number, delta: number) {
+export async function addAmmo(db: SQLiteDatabase, id: number, rounds: number) {
   await db.runAsync(
-    `UPDATE ammo SET quantity = MAX(0, quantity + ?), updated_at = datetime('now') WHERE id = ?`,
-    delta,
+    `UPDATE ammo SET quantity = quantity + ?, updated_at = datetime('now') WHERE id = ?`,
+    rounds,
     id
   );
 }
 
-export async function addRoundsToFirearm(db: SQLiteDatabase, id: number, rounds: number) {
-  await db.runAsync(
-    `UPDATE firearms SET round_count = COALESCE(round_count, 0) + ?, updated_at = datetime('now') WHERE id = ?`,
-    rounds,
-    id
-  );
+/** Removes rounds only if enough are on hand, crediting the firearm in the same transaction. */
+export async function spendAmmo(
+  db: SQLiteDatabase,
+  id: number,
+  rounds: number,
+  firearmId: number | null
+): Promise<boolean> {
+  let used = false;
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    const result = await txn.runAsync(
+      `UPDATE ammo SET quantity = quantity - ?, updated_at = datetime('now') WHERE id = ? AND quantity >= ?`,
+      rounds,
+      id,
+      rounds
+    );
+    if (result.changes === 0) return;
+    if (firearmId !== null) {
+      await txn.runAsync(
+        `UPDATE firearms SET round_count = COALESCE(round_count, 0) + ?, updated_at = datetime('now') WHERE id = ?`,
+        rounds,
+        firearmId
+      );
+    }
+    used = true;
+  });
+  return used;
 }
 
 export async function accessoriesForFirearm(db: SQLiteDatabase, firearmId: number): Promise<Row[]> {
