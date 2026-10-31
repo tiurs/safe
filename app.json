@@ -1,17 +1,21 @@
 {
   "expo": {
-    "name": "armory",
-    "slug": "armory",
+    "name": "Safe",
+    "slug": "safe",
+    "scheme": "safe",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tiurs.safe"
     },
     "android": {
+      "package": "com.tiurs.safe",
+      "allowBackup": false,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#1F2A1F",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -20,6 +24,27 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-sharing",
+      "expo-router",
+      "expo-status-bar",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Safe uses your photos so you can attach pictures to inventory items.",
+          "cameraPermission": "Safe uses the camera so you can photograph inventory items.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Safe uses Face ID to lock your inventory."
+        }
+      ],
+      "expo-font"
+    ]
   }
 }
