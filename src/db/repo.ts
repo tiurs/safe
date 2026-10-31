@@ -47,6 +47,7 @@ export function validate(kind: Kind, values: FormValues): string | null {
       const n = Number(raw.replace(/[$,\s]/g, ''));
       if (!Number.isFinite(n)) return `${f.label} must be a number.`;
       if (n < 0) return `${f.label} cannot be negative.`;
+      if (f.integer && !Number.isInteger(n)) return `${f.label} must be a whole number.`;
     }
     if (f.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
       return `${f.label} must be in YYYY-MM-DD format.`;

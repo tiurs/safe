@@ -10,6 +10,7 @@ export interface FieldDef {
   required?: boolean;
   placeholder?: string;
   sensitive?: boolean;
+  integer?: boolean;
 }
 
 export type Row = Record<string, string | number | null> & { id: number };
