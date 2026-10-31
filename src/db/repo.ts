@@ -43,8 +43,10 @@ export function validate(kind: Kind, values: FormValues): string | null {
     const raw = (values[f.key] ?? '').trim();
     if (f.required && raw === '') return `${f.label} is required.`;
     if (raw === '') continue;
-    if ((f.type === 'number' || f.type === 'money') && !Number.isFinite(Number(raw.replace(/[$,\s]/g, '')))) {
-      return `${f.label} must be a number.`;
+    if (f.type === 'number' || f.type === 'money') {
+      const n = Number(raw.replace(/[$,\s]/g, ''));
+      if (!Number.isFinite(n)) return `${f.label} must be a number.`;
+      if (n < 0) return `${f.label} cannot be negative.`;
     }
     if (f.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
       return `${f.label} must be in YYYY-MM-DD format.`;
